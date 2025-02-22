@@ -1,0 +1,143 @@
+# -----------------------------------------
+# PREP
+# -----------------------------------------
+
+# Install and load necessary packages
+install.packages("tidyverse")
+library(tidyverse)
+
+# Import and read data into a data frame
+cyclistic_df <- read_csv("january.csv")
+
+# -----------------------------------------
+# CLEAN DATA
+# -----------------------------------------
+cyclistic_df <- na.omit(cyclistic_df) # Remove any rows with NA values
+
+# Change days of the week from numeric categorization (1-7) to actual days of the week (Sunday, Monday, etc.)
+cyclistic_df <- cyclistic_df %>%
+  mutate(day_of_week = factor(day_of_week, 
+                              levels = 1:7, 
+                              labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")))
+
+# Check that the prior code worked
+levels(cyclistic_df$day_of_week)
+
+# -----------------------------------------
+# PROCESS AND ANALYZE
+# -----------------------------------------
+
+# Busiest time of day
+# Seperate start time into its hour, minute, and second
+cyclistic_df <- separate(cyclistic_df, start_time, into=c('hour', 'minute', 'second'), sep=':') 
+
+most_common_time <- cyclistic_df %>%
+  mutate(hour = as.numeric(hour)) %>%  # Ensure hour column is numeric
+  mutate(time_of_day = case_when( # Categorize each hour into a time of day
+    hour >= 4 & hour <= 9  ~ "Morning",
+    hour >= 10 & hour <= 15 ~ "Afternoon",
+    hour >= 16 & hour <= 21 ~ "Evening",
+    TRUE ~ "Night"  # Default case (1-3 and 22-24)
+  )) %>%
+  count(time_of_day, sort = TRUE) %>%  # Count occurrences and sort in descending order
+  slice_max(n, n = 1)  # Select the most common time_of_day
+
+print(most_common_time)
+
+# FINDING AVERAGES
+# Average ride length
+cyclistic_df %>% summarize(mean(length_minutes))
+
+# Average ride length, dis-aggregated by user type
+cyclistic_df %>% 
+  group_by(member_casual) %>% 
+  summarize(mean(length_minutes))
+
+# Average ride length, dis-aggregated by day of week
+cyclistic_df %>% 
+  group_by(day_of_week) %>% 
+  summarize(mean(length_minutes))
+
+# Average ride length, dis-aggregated by bike type
+cyclistic_df %>% 
+  group_by(rideable_type) %>% 
+  summarize(mean(length_minutes))
+
+# Average ride length, dis-aggregated by time of day
+cyclistic_df <- cyclistic_df %>%
+  mutate(hour = as.numeric(hour)) %>%  
+  mutate(time_of_day = case_when(
+    hour >= 4 & hour <= 9  ~ "Morning",
+    hour >= 10 & hour <= 15 ~ "Afternoon",
+    hour >= 16 & hour <= 21 ~ "Evening",
+    TRUE ~ "Night"
+  )) %>%
+  mutate(time_of_day = factor(time_of_day, 
+                              levels = c("Morning", "Afternoon", "Evening", "Night")))  # Ensure order
+
+cyclistic_df %>% 
+  filter(time_of_day == "Morning") %>% 
+  summarize(mean(length_minutes))
+
+cyclistic_df %>% 
+  filter(time_of_day == "Afternoon") %>% 
+  summarize(mean(length_minutes))
+
+cyclistic_df %>% 
+  filter(time_of_day == "Evening") %>% 
+  summarize(mean(length_minutes))
+
+cyclistic_df %>% 
+  filter(time_of_day == "Night") %>% 
+  summarize(mean(length_minutes))
+
+# Average ride length per day, by user type
+aggregate(cyclistic_df$length_minutes ~ cyclistic_df$member_casual + cyclistic_df$day_of_week,
+          FUN = mean)
+
+# FINDING TOTALS
+# Total number of rides
+nrow(cyclistic_df)
+
+# Total number of rides per day
+cyclistic_df %>% 
+  group_by(day_of_week) %>% 
+  summarize(ride_count = n())
+
+# Total number of rides per time of day
+cyclistic_df %>% 
+  filter(time_of_day == "Morning") %>% 
+  count(time_of_day)
+
+cyclistic_df %>% 
+  filter(time_of_day == "Afternoon") %>% 
+  count(time_of_day)
+
+cyclistic_df %>% 
+  filter(time_of_day == "Evening") %>% 
+  count(time_of_day)
+
+cyclistic_df %>% 
+  filter(time_of_day == "Night") %>% 
+  count(time_of_day)
+
+# Total number of member vs. casual user rides
+cyclistic_df %>% 
+  group_by(member_casual) %>% 
+  count(member_casual)
+
+# Total number of classic vs. electric bikes used on all rides
+cyclistic_df %>% 
+  group_by(rideable_type) %>% 
+  count(rideable_type)
+
+# Time of day members vs. casual users use Cyclistic the most
+cyclistic_df %>%
+  group_by(member_casual) %>% 
+  count(time_of_day) %>% 
+  arrange(desc(n))
+
+# -----------------------------------------
+# EXPORT DATA
+# -----------------------------------------
+write.csv(cyclistic_df, "cyclistic_data.csv", row.names = FALSE)
